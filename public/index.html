@@ -54,27 +54,28 @@
     <div class="game-layout">
       <!-- Top Action Bar (Fixed at top) -->
       <div id="top-bar" class="top-bar">
-        <div class="top-info-left">
+        <!-- Row 1 -->
+        <div class="top-row-1">
           <div class="room-code-badge" title="Oda Kodu"><span id="top-room-code"></span></div>
-        </div>
-        <div class="top-info-center">
           <div id="top-turn-info" class="top-turn-info">
             <!-- Injected by JS: Sıra: Halil -->
           </div>
+          <div id="connection-status" class="conn-status online"></div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="top-row-2">
           <div id="top-last-event" class="top-last-event">
             <!-- Injected by JS: Son olay -->
           </div>
         </div>
-        <div class="top-info-right">
-          <div id="connection-status" class="conn-status online"></div>
-        </div>
+
+        <!-- Row 3 -->
+        <div id="player-bar" class="player-bar"></div>
       </div>
 
       <!-- TAB: BOARD -->
       <div id="tab-board" class="game-tab active">
-        <!-- Compact Player Bar will only show if not moved inside drawer, but let's keep it for desktop/tablets -->
-        <div id="player-bar" class="player-bar desktop-only"></div>
-
         <div id="board" class="board">
           <!-- Board squares rendered by JS -->
           <div id="board-center" class="board-center">
@@ -124,7 +125,7 @@
 
     <!-- Mobile Bottom Action Bar (Fixed at bottom) -->
     <div id="mobile-actions" class="mobile-actions">
-        <!-- Buttons injected via JS -->
+      <!-- Buttons injected via JS -->
     </div>
   </div>
 
@@ -154,6 +155,16 @@
   <div id="trade-offer-overlay" class="modal-overlay">
     <div id="trade-offer-modal" class="modal trade-modal">
       <!-- Content injected via JS -->
+    </div>
+  </div>
+
+  <!-- PROPERTY DETAIL BOTTOM SHEET -->
+  <div id="property-sheet-overlay" class="sheet-overlay" onclick="closePropertySheet()">
+    <div id="property-sheet" class="bottom-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-drag-handle"></div>
+      <div id="property-sheet-content">
+        <!-- Content injected via JS -->
+      </div>
     </div>
   </div>
 

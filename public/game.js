@@ -498,13 +498,19 @@ function buildBoard() {
             inner += `<div class="color-bar" style="background:linear-gradient(135deg,${sq.colorHex},${adjustColor(sq.colorHex, -20)})"></div>`;
         }
 
+        // Shorten long city names for better mobile display
+        const shortName = sq.name.split(' ')[0];
+
         if (['property', 'railroad', 'utility'].includes(sq.type)) {
             if (sq.type !== 'property') inner += `<span class="sq-icon">${SQ_ICONS[sq.type] || ''}</span>`;
-            inner += `<span class="sq-name">${sq.name}</span>`;
-            inner += `<span class="sq-price">₺${sq.price}</span>`;
+            inner += `<span class="sq-name">${shortName}</span>`;
+            if (!isMobile()) inner += `<span class="sq-price">₺${sq.price}</span>`; // Hide price on mobile board entirely
         } else {
-            inner += `<span class="sq-icon">${SQ_ICONS[sq.type] || ''}</span>`;
-            inner += `<span class="sq-name">${sq.name}</span>`;
+            inner += `<span class="sq-icon large-icon">${SQ_ICONS[sq.type] || ''}</span>`;
+            // Only show name for text-heavy special squares on desktop or skip entirely if corner
+            if (!isCorner) {
+                inner += `<span class="sq-name">${shortName}</span>`;
+            }
         }
         inner += '<div class="tokens"></div>';
         div.innerHTML = inner;
@@ -529,13 +535,23 @@ function updateBoard() {
         // Enhanced Tokens
         const tokensEl = div.querySelector('.tokens');
         const playersHere = state.players.filter(p => p.position === i && !p.bankrupt && !animatingPlayerIds.has(p.id));
-        tokensEl.innerHTML = playersHere.map((p, j) =>
-            `<div class="token" style="background:${p.color};--tok-color:${p.color};animation-delay:${j * .08}s" title="${p.name}">
+
+        // Add a class based on count to help CSS arrange them
+        tokensEl.className = `tokens count-${Math.min(playersHere.length, 4)}`;
+
+        tokensEl.innerHTML = playersHere.map((p, j) => {
+            const isCurrent = (p.id === state.players[state.currentPI]?.id);
+            return `<div class="token ${isCurrent ? 'current-player-token' : ''}" style="background:${p.color};--tok-color:${p.color};animation-delay:${j * .08}s" title="${p.name}">
                 <span class="tok-letter">${p.name[0]}</span>
-            </div>`
-        ).join('');
+            </div>`;
+        }).join('');
 
         const prop = state.props[i];
+
+        // Active Square Highlight
+        const isActiveSquare = state.players[state.currentPI] && state.players[state.currentPI].position === i;
+        div.classList.toggle('active-sq', !!isActiveSquare);
+
         div.classList.toggle('mortgaged', !!(prop && prop.mortgaged));
 
         const existingH = div.querySelector('.houses-display');
@@ -579,8 +595,10 @@ function updatePlayerBar() {
         const isMe = p.id === myId;
         return `<div class="pbar-item${isActive ? ' pbar-active' : ''}${p.bankrupt ? ' pbar-dead' : ''}" title="${p.name}">
       <div class="pbar-dot" style="background:${p.color}"></div>
-      <span class="pbar-name">${isMe ? 'Sen' : p.name.slice(0, 6)}</span>
-      <span class="pbar-money">₺${p.money >= 1000 ? (p.money / 1000).toFixed(1) + 'K' : p.money}</span>
+      <div style="display:flex; flex-direction:column; align-items:flex-start; margin-left: 4px;">
+          <span class="pbar-name" style="font-size:0.65rem; line-height:1;">${isMe ? 'Sen' : p.name.slice(0, 6)}</span>
+          <span class="pbar-money" style="font-size:0.8rem; line-height:1; font-weight:700; color:var(--gold);">₺${p.money >= 1000 ? (p.money / 1000).toFixed(1) + 'K' : p.money}</span>
+      </div>
       ${p.jailTurns > 0 ? '<span class="pbar-jail">🔒</span>' : ''}
     </div>`;
     }).join('');
@@ -703,10 +721,10 @@ function updateCenter() {
     const btns = [];
     switch (state.phase) {
         case 'roll':
-            btns.push({ label: '🎲 Zar At', cls: 'btn-primary btn-large', action: "send({type:'roll_dice'})" });
+            btns.push({ label: '🎲 Zar At', cls: 'btn-primary btn-large', action: "send({type:'roll_dice'})", context: "Sıran sende. Hamleni tamamlamak için zar at." });
             break;
         case 'jail':
-            btns.push({ label: '🎲 Çift Dene', cls: 'btn-primary', action: "send({type:'roll_jail_dice'})" });
+            btns.push({ label: '🎲 Çift Dene', cls: 'btn-primary', action: "send({type:'roll_jail_dice'})", context: "Hapistesin. Çıkmak için çift atmalı ya da ödeme yapmalısın." });
             btns.push({ label: '₺50 Öde', cls: 'btn-secondary', action: "send({type:'pay_jail_fine'})" });
             if (cp.jailCards > 0) btns.push({ label: '🃏 Kart Kullan', cls: 'btn-secondary', action: "send({type:'use_jail_card'})" });
             break;
@@ -715,8 +733,8 @@ function updateCenter() {
             break;
         case 'auction': break;
         case 'post_roll':
+            btns.push({ label: 'Turu Bitir ✓', cls: 'btn-primary', action: "send({type:'end_turn'})", context: "Hamleni yaptın. Turu bitirebilir veya istersen takas başlatabilirsin." });
             btns.push({ label: '🤝 Takas', cls: 'btn-secondary', action: "openTradeModal()" });
-            btns.push({ label: 'Turu Bitir ✓', cls: 'btn-primary', action: "send({type:'end_turn'})" });
             break;
         case 'trade':
             if (state.trade) {
@@ -765,7 +783,8 @@ function updateCenter() {
     }
 
     btns.forEach((b, i) => {
-        const btnHtml = `<button class="btn ${b.cls}" style="animation-delay:${i * .08}s" onclick="${b.action}">
+        const contextHtml = b.context ? `<div class="action-context">${b.context}</div>` : '';
+        const btnHtml = `${contextHtml}<button class="btn ${b.cls}" style="animation-delay:${i * .08}s" onclick="${b.action}">
             ${b.label}
             ${b.reason ? `<span class="btn-reason">${b.reason}</span>` : ''}
         </button>`;
@@ -1112,8 +1131,22 @@ function showPropertyInfo(idx) {
     </div>`;
     }
 
-    modal.innerHTML = details + '<button class="btn btn-secondary" onclick="closeModal()" style="margin-top:12px">Kapat</button>';
-    $('#modal-overlay').classList.add('show');
+    const isMobileDevice = isMobile();
+    const sheetContent = isMobileDevice ? $('#property-sheet-content') : modal;
+
+    const actionHtml = isMobileDevice ? '' : '<button class="btn btn-secondary" onclick="closeModal()" style="margin-top:12px">Kapat</button>';
+
+    sheetContent.innerHTML = details + actionHtml;
+
+    if (isMobileDevice) {
+        $('#property-sheet-overlay').classList.add('active');
+    } else {
+        $('#modal-overlay').classList.add('show');
+    }
+}
+
+function closePropertySheet() {
+    $('#property-sheet-overlay').classList.remove('active');
 }
 
 function closeModal() { $('#modal-overlay').classList.remove('show'); }
