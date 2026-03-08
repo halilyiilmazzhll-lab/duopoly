@@ -295,6 +295,7 @@ async function renderGame(oldDice, oldState) {
     if (state.events && state.events.length > 0) {
         processEvents(state.events);
         processFloaters(state.events);
+        state.events = []; // Clear events locally to prevent double triggers on re-render
     }
 
     if (isMobile() && (state.phase === 'buy' || state.phase === 'auction')) {
