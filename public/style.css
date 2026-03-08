@@ -759,6 +759,27 @@ input:focus {
   }
 }
 
+.sq.own-prop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--green);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sq.enemy-prop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--red);
+  background: rgba(232, 84, 84, 0.05);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 5;
+}
+
 /* ─── BOARD CENTER ──────────────────────────────────────────── */
 .board-center {
   grid-column: 2/11;
@@ -2188,5 +2209,28 @@ input:focus {
 @media (max-width: 600px) {
   .trade-sections {
     flex-direction: column;
+  }
+}
+
+/* ─── CUSTOM FLOAT ANIMATION ─────────────────────────────── */
+@keyframes floatUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1.1);
+  }
+
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -200%) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -250%) scale(0.9);
   }
 }

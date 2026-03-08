@@ -143,6 +143,10 @@ function connect() {
                     if (state.code) $('#top-room-code').textContent = state.code;
                     await renderGame(oldDice, oldState);
 
+                    if (state.events && state.events.length > 0) {
+                        processEvents(state.events);
+                    }
+
                     // Force trade check immediately after render to prevent animation block issues
                     if (state.phase === 'trade' && state.trade) {
                         const targetId = state.players[state.trade.target].id;
@@ -196,6 +200,53 @@ function renderWaiting() {
     ).join('');
 }
 
+// ─── EVENT ANIMATIONS ───────────────────────────────────────
+function processFloaters(events) {
+    events.forEach(e => {
+        // Find the player's UI card to anchor the floating text
+        const playerCards = document.querySelectorAll('.pp-card');
+
+        if (e.type === 'rent') {
+            createFloater(`-₺${e.amount}`, 'var(--red)', playerCards[e.payer]);
+            createFloater(`+₺${e.amount}`, 'var(--green)', playerCards[e.owner]);
+            showToast(`${state.players[e.payer].name}, ${state.players[e.owner].name} oyuncusuna ₺${e.amount} kira ödedi.`, 'info');
+        } else if (e.type === 'tax') {
+            createFloater(`-₺${e.amount}`, 'var(--red)', playerCards[e.player]);
+        } else if (e.type === 'jail') {
+            createFloater(`HAPİS!`, 'var(--red)', playerCards[e.player]);
+        }
+    });
+}
+
+function createFloater(text, color, anchorEl) {
+    const floater = document.createElement('div');
+    floater.textContent = text;
+    floater.style.position = 'fixed';
+    floater.style.color = color;
+    floater.style.fontWeight = 'bold';
+    floater.style.fontSize = '1.5rem';
+    floater.style.textShadow = '0 2px 4px rgba(0,0,0,0.8)';
+    floater.style.pointerEvents = 'none';
+    floater.style.zIndex = '9999';
+    floater.style.animation = 'floatUp 2s ease-out forwards';
+
+    // anchor to the element if exists, else center screen
+    if (anchorEl) {
+        const rect = anchorEl.getBoundingClientRect();
+        floater.style.left = (rect.left + rect.width / 2) + 'px';
+        floater.style.top = rect.top + 'px';
+    } else {
+        floater.style.left = '50%';
+        floater.style.top = '50%';
+        floater.style.transform = 'translate(-50%, -50%)';
+    }
+
+    document.body.appendChild(floater);
+    setTimeout(() => {
+        if (floater.parentNode) floater.parentNode.removeChild(floater);
+    }, 2000);
+}
+
 // ─── GAME RENDER ────────────────────────────────────────────
 let boardBuilt = false;
 
@@ -243,6 +294,7 @@ async function renderGame(oldDice, oldState) {
     // Process events (modal notifications) only after finishing animation
     if (state.events && state.events.length > 0) {
         processEvents(state.events);
+        processFloaters(state.events);
     }
 
     if (isMobile() && (state.phase === 'buy' || state.phase === 'auction')) {
@@ -500,12 +552,19 @@ function updateBoard() {
 
         const existingOwner = div.querySelector('.owner-strip');
         if (existingOwner) existingOwner.remove();
+        div.classList.remove('own-prop', 'enemy-prop');
         if (prop && prop.owner !== undefined) {
             const strip = document.createElement('div');
             strip.className = 'owner-strip';
-            const c = state.players[prop.owner]?.color || '#333';
+            const ownerObj = state.players[prop.owner];
+            const c = ownerObj?.color || '#333';
             strip.style.cssText = `background:${c};color:${c};`;
             div.appendChild(strip);
+
+            if (ownerObj) {
+                if (ownerObj.id === myId) div.classList.add('own-prop');
+                else div.classList.add('enemy-prop');
+            }
         }
     });
 }
@@ -622,7 +681,21 @@ function updateCenter() {
     };
 
     if (!isMyTurn && state.phase !== 'auction' && state.phase !== 'buy') {
-        renderWaitText('<div class="wait-text">Sıranızı bekleyin...</div>');
+        const idleHints = [
+            "📢 İpucu: Tahtadaki herhangi bir mülke tıklayarak kira detaylarını görebilirsin.",
+            "📢 İpucu: Rakiplerinin parasına sağ/üst menüden dikkat et, iflas sınırına yaklaşanlar fırsat olabilir.",
+            "📢 İpucu: Aynı renkteki tüm mülkleri topladığında kiralar 2 katına çıkar!",
+            "📢 İpucu: Kendi sıran geldiğinde diğer oyunculara Takas teklifi gönderebilirsin."
+        ];
+        // Use the turn player's ID to keep the hint somewhat stable but changing every turn
+        const randomHint = idleHints[state.currentPI % idleHints.length];
+
+        renderWaitText(`<div class="wait-text">
+            Sıranızı bekleyin...
+            <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2); font-size:0.75rem; color:var(--text3); text-align:left;">
+                ${randomHint}
+            </div>
+        </div>`);
         showCard(); return;
     }
 
@@ -663,9 +736,28 @@ function updateCenter() {
             break;
         case 'game_over': {
             const winner = state.players.find(p => !p.bankrupt);
-            renderWaitText(`<div style="text-align:center">
-        <div style="font-size:2.5rem;margin-bottom:8px">🏆</div>
-        <div style="font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--gold)">${winner?.name || '?'} Kazandı!</div>
+
+            let statsHtml = `<div class="end-stats" style="font-size:0.85rem; color:var(--text2); margin-top:20px; text-align:left; width:100%; max-width:400px; margin-left:auto; margin-right:auto;">
+                <h4 style="color:var(--gold); border-bottom:1px solid var(--border2); padding-bottom:5px; margin-bottom:10px;">Oyun Sonu İstatistikleri</h4>`;
+
+            state.players.forEach(p => {
+                const s = p.stats || { rentEarned: 0, rentPaid: 0, highestRent: 0, taxesPaid: 0 };
+                statsHtml += `<div style="margin-bottom:10px; padding:10px; background:var(--bg3); border-radius:8px; border-left: 4px solid ${p.color};">
+                    <strong style="color:${p.color}">${p.name}</strong> ${p.bankrupt ? '<span style="color:var(--red);font-size:0.75rem;">(İflas Etti)</span>' : '<span style="color:var(--green);font-size:0.75rem;">(Kazandı)</span>'}
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; font-size:0.8rem; color:var(--text);">
+                        <div>Kira Geliri: <b style="color:var(--green)">₺${s.rentEarned || 0}</b></div>
+                        <div>Kira Gideri: <b style="color:var(--red)">₺${s.rentPaid || 0}</b></div>
+                        <div>En Yüksek Kira: <b>₺${s.highestRent || 0}</b></div>
+                        <div>Ödenen Vergi: <b>₺${s.taxesPaid || 0}</b></div>
+                    </div>
+                </div>`;
+            });
+            statsHtml += `</div>`;
+
+            renderWaitText(`<div style="text-align:center; width:100%;">
+        <div style="font-size:3rem;margin-bottom:8px">🏆</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--gold);margin-bottom:10px;">${winner?.name || '?'} Kazandı!</div>
+        ${statsHtml}
       </div>`);
             return;
         }

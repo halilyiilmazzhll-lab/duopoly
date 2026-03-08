@@ -38,7 +38,10 @@ class Game {
 
     addPlayer(id, name, ws) {
         if (this.players.length >= 6 || this.started) return false;
-        this.players.push({ id, name, color: PLAYER_COLORS[this.players.length], position: 0, money: 1500, jailTurns: 0, jailCards: 0, bankrupt: false });
+        this.players.push({
+            id, name, color: PLAYER_COLORS[this.players.length], position: 0, money: 1500, jailTurns: 0, jailCards: 0, bankrupt: false,
+            stats: { rentPaid: 0, rentEarned: 0, highestRent: 0, taxesPaid: 0 }
+        });
         this.conns.set(id, ws); return true;
     }
 
@@ -147,11 +150,19 @@ class Game {
                 if (!this.props[idx]) { this.landedPropIdx = idx; this.phase = 'buy'; this.sync(); return; }
                 else if (this.props[idx].owner !== pi && !this.props[idx].mortgaged) {
                     const rent = this.calcRent(idx); const owner = this.props[idx].owner;
+                    if (!this.players[pi].stats) this.players[pi].stats = { rentPaid: 0, rentEarned: 0, highestRent: 0, taxesPaid: 0 };
+                    if (!this.players[owner].stats) this.players[owner].stats = { rentPaid: 0, rentEarned: 0, highestRent: 0, taxesPaid: 0 };
+                    this.players[pi].stats.rentPaid += rent;
+                    this.players[owner].stats.rentEarned += rent;
+                    if (rent > this.players[owner].stats.highestRent) this.players[owner].stats.highestRent = rent;
+
                     this.addLog(`💸 ${p.name}, ₺${rent} kira ödedi (${sq.name})`);
                     this.addEvent({ type: 'rent', payer: pi, owner, amount: rent, propName: sq.name, propColor: sq.colorHex });
                     this.transfer(pi, owner, rent);
                 } break;
             case 'tax':
+                if (!this.players[pi].stats) this.players[pi].stats = { rentPaid: 0, rentEarned: 0, highestRent: 0, taxesPaid: 0 };
+                this.players[pi].stats.taxesPaid += sq.amount;
                 this.addLog(`📉 ${p.name}, ₺${sq.amount} vergi ödedi`);
                 this.addEvent({ type: 'tax', player: pi, amount: sq.amount });
                 this.payBank(pi, sq.amount); break;
