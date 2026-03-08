@@ -1,0 +1,9 @@
+{
+  "appId": "com.hll.duopoly",
+  "appName": "Duopoly",
+  "webDir": "public",
+  "server": {
+    "url": "https://duopoly.onrender.com",
+    "cleartext": true
+  }
+}

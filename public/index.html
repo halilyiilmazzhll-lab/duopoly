@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Duopoly - Türk Şehirleri Monopoly</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div id="lobby" class="screen active">
+    <div class="lobby-card">
+      <h1 class="logo">🏙️ DUOPOLY</h1>
+      <p class="subtitle">Türk Şehirleri Monopoly</p>
+      <input id="player-name" type="text" placeholder="İsminizi girin..." maxlength="12" autocomplete="off">
+      <div class="lobby-buttons">
+        <button id="btn-create" class="btn btn-primary">Oda Oluştur</button>
+        <div class="divider"><span>veya</span></div>
+        <input id="room-code-input" type="text" placeholder="Oda kodu" maxlength="4" autocomplete="off"
+          style="text-transform:uppercase">
+        <button id="btn-join" class="btn btn-secondary">Odaya Katıl</button>
+      </div>
+      <p id="lobby-error" class="error"></p>
+    </div>
+  </div>
+
+  <!-- WAITING ROOM -->
+  <div id="waiting" class="screen">
+    <div class="lobby-card">
+      <h2>Oda Kodu</h2>
+      <div id="room-code-display" class="room-code"></div>
+      <p class="hint">Bu kodu diğer oyunculara verin</p>
+      <div id="player-list" class="player-list"></div>
+      <button id="btn-start" class="btn btn-primary">Oyunu Başlat</button>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div id="game" class="screen">
+
+
+    <!-- Mobile Tab Bar -->
+    <nav id="mobile-tabs" class="mobile-tabs">
+      <button class="tab-btn active" data-tab="tab-board">🎲 Oyun</button>
+      <button class="tab-btn" data-tab="tab-props">🏠 Mülklerim</button>
+      <button class="tab-btn" data-tab="tab-players">👥 Oyuncular</button>
+      <button class="tab-btn" data-tab="tab-log">📋 Günlük</button>
+    </nav>
+
+    <div class="game-layout">
+      <!-- TAB: BOARD -->
+      <div id="tab-board" class="game-tab active">
+        <!-- Compact Player Bar (mobile top strip) -->
+        <div id="player-bar" class="player-bar"></div>
+
+        <div id="board" class="board">
+          <!-- Board squares rendered by JS -->
+          <div id="board-center" class="board-center">
+            <div id="turn-info" class="turn-info"></div>
+            <div id="dice-area" class="dice-area">
+              <div id="die1" class="die">?</div>
+              <div id="die2" class="die">?</div>
+            </div>
+            <div id="actions" class="actions"></div>
+            <div id="card-display" class="card-display"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: MY PROPERTIES -->
+      <div id="tab-props" class="game-tab">
+        <div id="my-props-panel" class="my-props-panel">
+          <h3>🏠 Mülklerim</h3>
+          <div id="my-props-list"></div>
+          <div id="my-props-empty" class="empty-state">Henüz mülkünüz yok.</div>
+        </div>
+      </div>
+
+      <!-- TAB: PLAYERS -->
+      <div id="tab-players" class="game-tab">
+        <div id="players-panel" class="players-panel"></div>
+      </div>
+
+      <!-- TAB: LOG -->
+      <div id="tab-log" class="game-tab">
+        <div class="event-log always-show">
+          <h3>📋 Olay Günlüğü</h3>
+          <div id="log-list"></div>
+        </div>
+      </div>
+
+      <!-- Desktop sidebar (hidden on mobile) -->
+      <div class="sidebar desktop-only">
+        <div id="players-panel-desktop" class="players-panel"></div>
+        <div id="property-manager" class="prop-manager"></div>
+        <div class="event-log">
+          <h3>📋 Olay Günlüğü</h3>
+          <div id="log-list-desktop"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUY MODAL -->
+  <div id="buy-modal-overlay" class="modal-overlay">
+    <div id="buy-modal" class="modal buy-modal"></div>
+  </div>
+
+  <!-- AUCTION MODAL -->
+  <div id="auction-modal-overlay" class="modal-overlay">
+    <div id="auction-modal" class="modal auction-modal"></div>
+  </div>
+
+  <!-- PROPERTY INFO MODAL -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div id="modal" class="modal"></div>
+  </div>
+
+  <!-- TRADE PROPOSE MODAL -->
+  <div id="trade-modal-overlay" class="modal-overlay">
+    <div id="trade-modal" class="modal trade-modal">
+      <!-- Content injected via JS -->
+    </div>
+  </div>
+
+  <!-- TRADE OFFER RECEIVED MODAL -->
+  <div id="trade-offer-overlay" class="modal-overlay">
+    <div id="trade-offer-modal" class="modal trade-modal">
+      <!-- Content injected via JS -->
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+
+</html>
