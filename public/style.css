@@ -345,7 +345,149 @@ input:focus {
   align-items: center;
   width: 100%;
   min-height: 100vh;
-  padding: 8px 8px calc(60px + var(--safe-bottom));
+  padding: 60px 8px calc(120px + var(--safe-bottom));
+  /* Changed padding to accommodate top and bottom bars */
+}
+
+/* ─── TOP ACTION BAR ────────────────────────────────────────── */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 54px;
+  background: linear-gradient(180deg, rgba(6, 10, 18, 0.95), rgba(6, 10, 18, 0.85));
+  border-bottom: 1px solid var(--border);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.top-info-left,
+.top-info-right {
+  display: flex;
+  align-items: center;
+  width: 60px;
+  /* Fixed width to keep center aligned */
+}
+
+.top-info-right {
+  justify-content: flex-end;
+}
+
+.top-info-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.room-code-badge {
+  background: rgba(212, 165, 68, 0.15);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+.top-turn-info {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.top-last-event {
+  font-size: 0.65rem;
+  color: var(--text2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.conn-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text3);
+  box-shadow: 0 0 5px currentColor;
+}
+
+.conn-status.online {
+  background: var(--green);
+}
+
+.conn-status.offline {
+  background: var(--red);
+}
+
+/* ─── MOBILE BOTTOM ACTION BAR ──────────────────────────────── */
+.mobile-actions {
+  position: fixed;
+  bottom: calc(45px + var(--safe-bottom));
+  /* Just above the tab bar */
+  left: 0;
+  right: 0;
+  padding: 10px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  align-items: center;
+  background: linear-gradient(0deg, rgba(6, 10, 18, 0.95), transparent);
+  z-index: 45;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  pointer-events: none;
+  /* Let clicks pass through empty space */
+}
+
+.mobile-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-actions .btn {
+  pointer-events: auto;
+  /* Re-enable clicks on buttons */
+  flex-shrink: 0;
+  padding: 12px 20px;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+}
+
+.mobile-actions .btn-reason {
+  font-size: 0.6rem;
+  opacity: 0.7;
+  margin-top: 2px;
+  font-weight: normal;
+  display: block;
+}
+
+.mobile-actions .wait-text {
+  pointer-events: auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border-radius: 20px;
+  margin: 0 auto;
+  box-shadow: var(--shadow);
+  color: var(--text2);
 }
 
 .game-tab {
@@ -654,6 +796,13 @@ input:focus {
   z-index: 1;
 }
 
+/* Hide turn-info on mobile in center, show only on desktop */
+@media (max-width: 768px) {
+  .board-center .turn-info {
+    display: none;
+  }
+}
+
 .turn-info {
   text-align: center;
 }
@@ -742,12 +891,20 @@ input:focus {
 }
 
 /* ─── ACTIONS ───────────────────────────────────────────────── */
+/* Legacy actions container, hidden on mobile now */
 .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-  max-width: 300px;
+  display: none;
+  /* Handled by mobile-actions now */
+}
+
+@media (min-width: 769px) {
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    max-width: 300px;
+  }
 }
 
 .actions .btn {
@@ -774,6 +931,7 @@ input:focus {
   font-size: .8rem;
   letter-spacing: .5px;
   animation: pulse 2s ease-in-out infinite;
+  text-align: center;
 }
 
 @keyframes pulse {
@@ -1260,6 +1418,123 @@ input:focus {
 
 .modal .btn {
   margin-top: 6px;
+}
+
+/* ─── TRADE MODAL ──────────────────────────────────────────── */
+.trade-modal {
+  text-align: left;
+}
+
+.trade-header {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.trade-target-select {
+  width: 100%;
+  padding: 10px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  margin-bottom: 15px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+}
+
+.trade-sections {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.trade-section {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.trade-section h3 {
+  font-size: 0.85rem;
+  color: var(--text3);
+  text-align: center;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.trade-props-list {
+  flex: 1;
+  min-height: 120px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 10px;
+}
+
+.trade-prop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border2);
+  cursor: pointer;
+}
+
+.trade-prop-item:last-child {
+  border-bottom: none;
+}
+
+.trade-money-input {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: auto;
+}
+
+.trade-money-input .currency {
+  color: var(--gold);
+  font-weight: bold;
+}
+
+.trade-money-input input {
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.trade-money-input input:focus {
+  box-shadow: none;
+}
+
+.trade-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.trade-actions .btn {
+  flex: 1;
+  margin-top: 0;
 }
 
 /* ─── BUY MODAL ─────────────────────────────────────────────── */

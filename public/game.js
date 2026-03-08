@@ -96,17 +96,34 @@ function connect() {
     // Eğer Render.com URL'niz varsa doğrudan production'da hostu zorlayabilirsiniz
     // Şu an default olarak URL'den okuyor:
     ws = new WebSocket(`${proto}//${host}`);
+
+    // Update connection status
+    const connStatus = $('#connection-status');
+    if (connStatus) {
+        connStatus.classList.remove('online');
+        connStatus.classList.add('offline');
+    }
+
+    ws.onopen = () => {
+        if (connStatus) {
+            connStatus.classList.remove('offline');
+            connStatus.classList.add('online');
+        }
+    };
+
     ws.onmessage = async e => {
         const msg = JSON.parse(e.data);
         switch (msg.type) {
             case 'room_created':
                 myId = msg.playerId;
                 $('#room-code-display').textContent = msg.code;
+                $('#top-room-code').textContent = msg.code;
                 showScreen('waiting');
                 break;
             case 'room_joined':
                 myId = msg.playerId;
                 $('#room-code-display').textContent = msg.code;
+                $('#top-room-code').textContent = msg.code;
                 showScreen('waiting');
                 break;
             case 'state':
@@ -120,8 +137,10 @@ function connect() {
                     // The instruction's snippet implies direct class manipulation.
                     // Sticking to showScreen for consistency if not explicitly changed.
                     showScreen('waiting');
+                    if (state.code) $('#top-room-code').textContent = state.code;
                 } else {
                     showScreen('game'); // Original code used showScreen('game')
+                    if (state.code) $('#top-room-code').textContent = state.code;
                     await renderGame(oldDice, oldState);
 
                     // Force trade check immediately after render to prevent animation block issues
@@ -141,7 +160,13 @@ function connect() {
                 break;
         }
     };
-    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onclose = () => {
+        if (connStatus) {
+            connStatus.classList.remove('online');
+            connStatus.classList.add('offline');
+        }
+        setTimeout(connect, 2000);
+    }
 }
 
 function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
@@ -525,26 +550,53 @@ function updatePlayers() {
     render($('#players-panel-desktop'));
 }
 
-// ─── CENTER UI ──────────────────────────────────────────────
+// ─── CENTER UI & MOBILE ACTIONS ──────────────────────────────────────────────
 function updateCenter() {
     const cp = state.players[state.currentPI];
     const isMyTurn = cp && cp.id === myId;
 
-    $('#turn-info').innerHTML = `
-    <div class="player-turn-name" style="color:${cp?.color || '#fff'}">
-      ${cp?.name || '?'}${cp?.id === myId ? ' — Senin Sıran!' : ''}
-    </div>
-    <div class="phase-text">${getPhaseText()}</div>`;
+    // --- Update Top Bar ---
+    const topTurnInfo = $('#top-turn-info');
+    if (topTurnInfo) {
+        topTurnInfo.style.color = cp?.color || '#fff';
+        topTurnInfo.innerHTML = `Sıra: ${cp?.name || '?'}`;
+    }
+
+    const topLastEvent = $('#top-last-event');
+    if (topLastEvent && state.log && state.log.length > 0) {
+        // Find the last actual event, maybe strip some HTML if needed, but for now just take the last log entry
+        topLastEvent.innerHTML = state.log[state.log.length - 1];
+    } else if (topLastEvent) {
+        topLastEvent.innerHTML = 'Oyun Başladı';
+    }
+
+    // --- Update Center Desktop Text ---
+    const turnInfo = $('#turn-info');
+    if (turnInfo) {
+        turnInfo.innerHTML = `
+        <div class="player-turn-name" style="color:${cp?.color || '#fff'}">
+          ${cp?.name || '?'}${cp?.id === myId ? ' — Senin Sıran!' : ''}
+        </div>
+        <div class="phase-text">${getPhaseText()}</div>`;
+    }
 
     // Handle buy/auction modals
     if (state.phase === 'buy' && isMyTurn) { showBuyModal(); } else { closeBuyModal(); }
     if (state.phase === 'auction') { showAuctionModal(); } else { closeAuctionModal(); }
 
-    const acts = $('#actions');
-    acts.innerHTML = '';
+    const acts = $('#actions'); // Desktop fallback
+    const mobileActs = $('#mobile-actions'); // Mobile primary
+
+    if (acts) acts.innerHTML = '';
+    if (mobileActs) mobileActs.innerHTML = '';
+
+    const renderWaitText = (html) => {
+        if (acts) acts.innerHTML = html;
+        if (mobileActs) mobileActs.innerHTML = html;
+    };
 
     if (!isMyTurn && state.phase !== 'auction' && state.phase !== 'buy') {
-        acts.innerHTML = '<div class="wait-text">Sıranızı bekleyin...</div>';
+        renderWaitText('<div class="wait-text">Sıranızı bekleyin...</div>');
         showCard(); return;
     }
 
@@ -559,11 +611,11 @@ function updateCenter() {
             if (cp.jailCards > 0) btns.push({ label: '🃏 Kart Kullan', cls: 'btn-secondary', action: "send({type:'use_jail_card'})" });
             break;
         case 'buy':
-            if (!isMyTurn) acts.innerHTML = `<div class="wait-text">${cp?.name} satın alma kararı veriyor...</div>`;
+            if (!isMyTurn) renderWaitText(`<div class="wait-text">${cp?.name} satın alma kararı veriyor...</div>`);
             break;
         case 'auction': break;
         case 'post_roll':
-            btns.push({ label: '🤝 Ticaret', cls: 'btn-secondary', action: "openTradeModal()" });
+            btns.push({ label: '🤝 Takas', cls: 'btn-secondary', action: "openTradeModal()" });
             btns.push({ label: 'Turu Bitir ✓', cls: 'btn-primary btn-large', action: "send({type:'end_turn'})" });
             break;
         case 'trade':
@@ -572,29 +624,34 @@ function updateCenter() {
                 const proposerId = state.players[state.trade.proposer].id;
 
                 if (proposerId === myId) {
-                    acts.innerHTML = `<div class="wait-text">
+                    renderWaitText(`<div class="wait-text">
                         Teklifiniz karşı tarafa iletildi, cevap bekleniyor...<br/>
                         <button class="btn btn-secondary" style="margin-top:10px" onclick="send({type:'cancel_trade'})">Teklifi İptal Et</button>
-                    </div>`;
+                    </div>`);
                 } else if (targetId === myId) {
                     showTradeOfferModal();
                 } else {
-                    acts.innerHTML = `<div class="wait-text">Oyuncular arası ticaret yapılıyor...</div>`;
+                    renderWaitText(`<div class="wait-text">Oyuncular arası ticaret yapılıyor...</div>`);
                 }
             }
             break;
         case 'game_over': {
             const winner = state.players.find(p => !p.bankrupt);
-            acts.innerHTML = `<div style="text-align:center">
+            renderWaitText(`<div style="text-align:center">
         <div style="font-size:2.5rem;margin-bottom:8px">🏆</div>
         <div style="font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--gold)">${winner?.name || '?'} Kazandı!</div>
-      </div>`;
+      </div>`);
             return;
         }
     }
 
     btns.forEach((b, i) => {
-        acts.innerHTML += `<button class="btn ${b.cls}" style="animation-delay:${i * .08}s" onclick="${b.action}">${b.label}</button>`;
+        const btnHtml = `<button class="btn ${b.cls}" style="animation-delay:${i * .08}s" onclick="${b.action}">
+            ${b.label}
+            ${b.reason ? `<span class="btn-reason">${b.reason}</span>` : ''}
+        </button>`;
+        if (acts) acts.innerHTML += btnHtml;
+        if (mobileActs) mobileActs.innerHTML += btnHtml;
     });
     showCard();
 }
@@ -860,31 +917,79 @@ function showPropertyInfo(idx) {
 
     let details = '';
     if (sq.type === 'property') {
+        const isMonopoly = sq.group && state.props && sq.group.every(g => state.props[g] && state.props[g].owner === prop?.owner);
+        const currentRent = prop ? (prop.mortgaged ? 0 : (prop.houses > 0 ? sq.rent[prop.houses] : (isMonopoly ? sq.rent[0] * 2 : sq.rent[0]))) : sq.rent[0];
+
+        // Calculate next upgrade info
+        let nextUpgradeText = '';
+        if (!prop || !prop.owner) {
+            nextUpgradeText = `<div style="color:var(--text2);margin-top:8px;">Satın alınabilir: <b>₺${sq.price}</b></div>`;
+        } else if (prop.mortgaged) {
+            nextUpgradeText = `<div style="color:var(--text2);margin-top:8px;">İpoteği Kaldırma: <b>₺${Math.ceil(sq.mortgage * 1.1)}</b></div>`;
+        } else if (prop.houses < 5) {
+            const nextRent = sq.rent[prop.houses + 1];
+            const upgradeType = prop.houses === 4 ? 'Otel' : 'Ev';
+            nextUpgradeText = `
+                <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border2); color:var(--text2);">
+                    <div style="font-size:0.8rem; margin-bottom:4px;">Sonraki Geliştirme (+1 ${upgradeType}): <b>₺${sq.houseCost}</b></div>
+                    <div style="color:var(--green); font-weight:bold;">Kira Artışı: ₺${currentRent} ➔ ₺${nextRent}</div>
+                </div>`;
+        } else {
+            nextUpgradeText = `<div style="color:var(--gold);margin-top:8px;font-weight:bold;">Maksimum Geliştirme (Otel)</div>`;
+        }
+
         details = `
       <div class="prop-card-color" style="background:linear-gradient(135deg,${sq.colorHex},${adjustColor(sq.colorHex, -30)})"></div>
       <h2>${sq.name}</h2>
       <div class="prop-details">
-        <div>💰 Fiyat: <b>₺${sq.price}</b> &nbsp;|&nbsp; İpotek: ₺${sq.mortgage}</div>
-        <div>🏗️ Ev maliyeti: ₺${sq.houseCost}</div><hr>
-        <div>Boş kira: ₺${sq.rent[0]} &nbsp;(tekel: ₺${sq.rent[0] * 2})</div>
-        <div>🏠×1: ₺${sq.rent[1]} &nbsp; 🏠×2: ₺${sq.rent[2]}</div>
-        <div>🏠×3: ₺${sq.rent[3]} &nbsp; 🏠×4: ₺${sq.rent[4]}</div>
-        <div>🏨 Otel: <b style="color:var(--gold)">₺${sq.rent[5]}</b></div>
-        ${owner ? `<hr><div>Sahip: <b style="color:${owner.color}">${owner.name}</b></div>
-        <div>Bina: ${prop.houses === 5 ? '🏨 Otel' : prop.houses + ' ev'} ${prop.mortgaged ? '(📌 İpotekli)' : ''}</div>` :
-                '<hr><div style="color:var(--text3)">Sahipsiz</div>'}
+        <div style="font-size:1.1rem; color:var(--gold); font-weight:bold; margin-bottom: 5px;">Mevcut Kira: ₺${currentRent}</div>
+        ${owner ? `<div>Sahip: <b style="color:${owner.color}">${owner.name}</b></div>
+        <div>Durum: ${prop.houses === 5 ? '🏨 Otel' : prop.houses > 0 ? prop.houses + ' Ev' : 'Bina Yok'} ${prop.mortgaged ? '(📌 İpotekli)' : isMonopoly ? '(Tekel)' : ''}</div>` :
+                '<div style="color:var(--text3)">Sahipsiz</div>'}
+        
+        ${nextUpgradeText}
+        
+        <div style="margin-top:15px; text-align:left; font-size:0.75rem; color:var(--text3); display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
+           <div>Fiyat: ₺${sq.price}</div>
+           <div>İpotek Değeri: ₺${sq.mortgage}</div>
+           <div>Boş Kira: ₺${sq.rent[0]}</div>
+           <div>Tekel Kira: ₺${sq.rent[0] * 2}</div>
+           <div>1 Ev: ₺${sq.rent[1]}</div>
+           <div>2 Ev: ₺${sq.rent[2]}</div>
+           <div>3 Ev: ₺${sq.rent[3]}</div>
+           <div>4 Ev: ₺${sq.rent[4]}</div>
+           <div style="grid-column: 1 / -1; color:var(--text2);">Otel: ₺${sq.rent[5]}</div>
+        </div>
       </div>`;
     } else if (sq.type === 'railroad') {
+        const rrCount = owner ? [5, 15, 25, 35].filter(r => state.props[r] && state.props[r].owner === prop.owner).length : 0;
+        const currentRent = prop && !prop.mortgaged ? 25 * Math.pow(2, rrCount - 1) : 25;
+
         details = `<h2>🚂 ${sq.name}</h2><div class="prop-details">
-      <div>Fiyat: ₺${sq.price}</div>
-      <div>1 dy: ₺25 | 2 dy: ₺50 | 3 dy: ₺100 | 4 dy: ₺200</div>
-      ${owner ? `<hr><div>Sahip: <b style="color:${owner.color}">${owner.name}</b></div>` : '<hr><div style="color:var(--text3)">Sahipsiz</div>'}
+      <div style="font-size:1.1rem; color:var(--gold); font-weight:bold; margin-bottom: 5px;">Mevcut Kira: ₺${owner && rrCount > 0 ? currentRent : '?'}</div>
+      ${owner ? `<div>Sahip: <b style="color:${owner.color}">${owner.name}</b> (${rrCount} İstasyon)</div>` : '<div style="color:var(--text3)">Sahipsiz</div>'}
+      
+      <div style="margin-top:15px; text-align:left; font-size:0.75rem; color:var(--text3); display:flex; flex-direction:column; gap:4px;">
+           <div>Satın Alma Fiyatı: ₺${sq.price}</div>
+           <div>1 İstasyon: ₺25</div>
+           <div>2 İstasyon: ₺50</div>
+           <div>3 İstasyon: ₺100</div>
+           <div>4 İstasyon: ₺200</div>
+      </div>
     </div>`;
     } else {
+        const utCount = owner ? [12, 28].filter(u => state.props[u] && state.props[u].owner === prop.owner).length : 0;
+        const currentMult = utCount === 2 ? 10 : 4;
+
         details = `<h2>⚡ ${sq.name}</h2><div class="prop-details">
-      <div>Fiyat: ₺${sq.price}</div>
-      <div>1 alty.: Zar×4 | 2 alty.: Zar×10</div>
-      ${owner ? `<hr><div>Sahip: <b style="color:${owner.color}">${owner.name}</b></div>` : '<hr><div style="color:var(--text3)">Sahipsiz</div>'}
+      <div style="font-size:1.1rem; color:var(--gold); font-weight:bold; margin-bottom: 5px;">Mevcut Çarpan: Zar × ${owner && utCount > 0 ? currentMult : '?'}</div>
+      ${owner ? `<div>Sahip: <b style="color:${owner.color}">${owner.name}</b> (${utCount} Tesis)</div>` : '<div style="color:var(--text3)">Sahipsiz</div>'}
+      
+      <div style="margin-top:15px; text-align:left; font-size:0.75rem; color:var(--text3); display:flex; flex-direction:column; gap:4px;">
+           <div>Satın Alma Fiyatı: ₺${sq.price}</div>
+           <div>1 Konum: Zar × 4</div>
+           <div>2 Konum: Zar × 10</div>
+      </div>
     </div>`;
     }
 
@@ -926,23 +1031,23 @@ function openTradeModal() {
 
     const modal = $('#trade-modal');
     modal.innerHTML = `
-        <div class="trade-header">Ticaret Teklifi</div>
+        <div class="trade-header">Takas Teklifi</div>
         <select id="trade-target" class="trade-target-select" onchange="renderTradeProps()">
             ${targetOptions}
         </select>
         <div class="trade-sections">
             <div class="trade-section">
-                <h3>Senin Vereceklerin</h3>
+                <h3>Sen Veriyorsun</h3>
                 <div id="trade-my-props" class="trade-props-list"></div>
                 <div class="trade-money-input">
-                    ₺ <input type="number" id="trade-my-money" value="0" min="0" max="${cp.money}">
+                    <span class="currency">₺</span><input type="number" id="trade-my-money" value="0" min="0" max="${cp.money}">
                 </div>
             </div>
             <div class="trade-section">
-                <h3>Karşılığında İstediklerin</h3>
+                <h3>Sen Alıyorsun</h3>
                 <div id="trade-target-props" class="trade-props-list"></div>
                 <div class="trade-money-input">
-                    ₺ <input type="number" id="trade-target-money" value="0" min="0">
+                    <span class="currency">₺</span><input type="number" id="trade-target-money" value="0" min="0">
                 </div>
             </div>
         </div>
@@ -1017,22 +1122,31 @@ function showTradeOfferModal() {
     }).join('') || '<div style="color:var(--text3);font-size:0.8rem;text-align:center">Mülk yok</div>';
 
     modal.innerHTML = `
-        <div class="trade-header" style="color:var(--green)">Yeni Ticaret Teklifi!</div>
+        <div class="trade-header" style="color:var(--green)">Yeni Takas Teklifi!</div>
         <div style="text-align:center;margin-bottom:10px;font-size:0.9rem;color:var(--text2)">
-            <b style="color:${proposer.color}">${proposer.name}</b> sizinle ticaret yapmak istiyor.
+            <b style="color:${proposer.color}">${proposer.name}</b> sizinle takas yapmak istiyor.
         </div>
+        
+        <div class="trade-diff-summary" style="text-align:center; padding:10px; background:var(--bg3); border-radius:8px; margin-bottom:15px;">
+           <div style="font-size:1.1rem; color:var(--text); font-weight:bold;">
+              Net Para Farkı: ${tr.offerMoney === tr.requestMoney ? 'Yok' :
+            tr.offerMoney > tr.requestMoney ? `<span style="color:var(--green)">+₺${tr.offerMoney - tr.requestMoney} Sana</span>` :
+                `<span style="color:var(--red)">-₺${tr.requestMoney - tr.offerMoney} Senden</span>`}
+           </div>
+        </div>
+
         <div class="trade-sections">
             <div class="trade-section">
-                <h3>Size Verilecekler</h3>
+                <h3>Sana Verilenler</h3>
                 <div class="trade-props-list">${getPropList(tr.offerProps)}</div>
-                <div style="margin-top:auto;text-align:center;font-size:1.1rem;color:var(--green)">
+                <div style="margin-top:auto;text-align:center;font-size:1.1rem;color:var(--green);font-weight:bold;">
                     + ₺${tr.offerMoney}
                 </div>
             </div>
             <div class="trade-section">
-                <h3>Sizden İstenenler</h3>
+                <h3>Senden İstenenler</h3>
                 <div class="trade-props-list">${getPropList(tr.requestProps)}</div>
-                <div style="margin-top:auto;text-align:center;font-size:1.1rem;color:var(--red)">
+                <div style="margin-top:auto;text-align:center;font-size:1.1rem;color:var(--red);font-weight:bold;">
                     - ₺${tr.requestMoney}
                 </div>
             </div>
