@@ -533,16 +533,42 @@ function updatePlayers() {
         panel.innerHTML = state.players.map((p, i) => {
             const isActive = i === state.currentPI;
             const props = Object.entries(state.props).filter(([, v]) => v.owner === i);
-            return `<div class="pp-card${isActive ? ' active-player' : ''}${p.bankrupt ? ' bankrupt' : ''}">
+
+            // Calculate Total Assets (Money + Properties/Houses/Hotels value)
+            let totalAssets = p.money;
+            let totalHouses = 0;
+            let totalHotels = 0;
+            props.forEach(([idx, prop]) => {
+                const sq = board[idx];
+                if (!prop.mortgaged) totalAssets += sq.price;
+                if (prop.houses > 0 && prop.houses < 5) {
+                    totalAssets += (prop.houses * sq.houseCost);
+                    totalHouses += prop.houses;
+                }
+                if (prop.houses === 5) {
+                    totalAssets += (5 * sq.houseCost);
+                    totalHotels++;
+                }
+            });
+
+            const riskClass = p.money < 100 && !p.bankrupt ? 'high-risk' : '';
+            const riskBadge = p.money < 100 && !p.bankrupt ? '<span class="risk-badge">⚠️ Risk</span>' : '';
+
+            return `<div class="pp-card${isActive ? ' active-player' : ''}${p.bankrupt ? ' bankrupt' : ''} ${riskClass}">
           <div class="pp-header">
             <div class="player-dot" style="background:${p.color};color:${p.color}"></div>
-            <span class="pp-name">${p.name}${p.id === myId ? ' (Sen)' : ''}</span>
+            <div class="pp-name-col">
+                <span class="pp-name">${p.name}${p.id === myId ? ' (Sen)' : ''}</span>
+                <span class="pp-assets">Varlık: ₺${totalAssets.toLocaleString()}</span>
+            </div>
             ${p.jailTurns > 0 ? '<span class="pp-jail">🔒 HAPİS</span>' : ''}
+            ${riskBadge}
             <span class="pp-money">₺${p.money.toLocaleString()}</span>
           </div>
           ${props.length ? `<div class="pp-props">${props.map(([k]) => {
                 const sq = board[k]; return `<div class="pp-prop-dot" style="background:${sq.colorHex || '#666'}" title="${sq.name}"></div>`;
             }).join('')}</div>` : ''}
+          ${(totalHouses > 0 || totalHotels > 0) ? `<div style="font-size:0.75rem; color:var(--text3); margin-top:4px;">Bina: ${totalHouses} Ev, ${totalHotels} Otel</div>` : ''}
         </div>`;
         }).join('');
     };
@@ -616,7 +642,7 @@ function updateCenter() {
         case 'auction': break;
         case 'post_roll':
             btns.push({ label: '🤝 Takas', cls: 'btn-secondary', action: "openTradeModal()" });
-            btns.push({ label: 'Turu Bitir ✓', cls: 'btn-primary btn-large', action: "send({type:'end_turn'})" });
+            btns.push({ label: 'Turu Bitir ✓', cls: 'btn-primary', action: "send({type:'end_turn'})" });
             break;
         case 'trade':
             if (state.trade) {

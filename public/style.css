@@ -442,33 +442,29 @@ input:focus {
   right: 0;
   padding: 10px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
-  overflow-x: auto;
   align-items: center;
   background: linear-gradient(0deg, rgba(6, 10, 18, 0.95), transparent);
   z-index: 45;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
   pointer-events: none;
   /* Let clicks pass through empty space */
-}
-
-.mobile-actions::-webkit-scrollbar {
-  display: none;
 }
 
 .mobile-actions .btn {
   pointer-events: auto;
   /* Re-enable clicks on buttons */
-  flex-shrink: 0;
-  padding: 12px 20px;
-  white-space: nowrap;
+  flex: 1 1 120px;
+  padding: 12px 14px;
+  white-space: normal;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 100px;
+  min-width: 0;
+  width: auto;
 }
 
 .mobile-actions .btn-reason {
@@ -1018,17 +1014,41 @@ input:focus {
   gap: 10px;
 }
 
+.pp-name-col {
+  display: flex;
+  flex-direction: column;
+}
+
 .pp-name {
   font-weight: 600;
-  font-size: .9rem;
+  font-size: .95rem;
+}
+
+.pp-assets {
+  font-size: 0.75rem;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.pp-card.high-risk {
+  border-color: var(--red);
+  background: linear-gradient(135deg, rgba(232, 84, 84, 0.05), var(--bg3));
+}
+
+.risk-badge {
+  font-size: 0.7rem;
+  background: rgba(232, 84, 84, 0.2);
+  color: var(--red);
+  padding: 3px 6px;
+  border-radius: 4px;
+  margin-left: auto;
 }
 
 .pp-money {
   font-family: 'Playfair Display', serif;
   color: var(--gold);
   font-weight: 700;
-  font-size: 1rem;
-  margin-left: auto;
+  font-size: 1.1rem;
 }
 
 .pp-jail {
